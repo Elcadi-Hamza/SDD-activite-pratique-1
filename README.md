@@ -14,3 +14,6 @@ avec les dépendances :
 - *SPRING WEB*
 - *LOMBOK*
 - *SPRING FOR GRAPHQL*
+
+## 2 - Création des entités JPA, enums, et repositories :
+
