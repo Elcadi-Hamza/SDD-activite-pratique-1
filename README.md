@@ -147,3 +147,144 @@ Nous pouvons exporter Swagger vers d'autres outils comme Postman en utilisant si
 ![Importation de Swagger dans Postman](screenShots/15.png)
 ![Récupération de toutes les requêtes dans Postman depuis Swagger](screenShots/16.png) \
 
+si tu va ajouter un REST API sans pass de la couche metier on utilisant `spring data REST`. \
+on ajoute la dependance dans `pom.xml`
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-rest</artifactId>
+</dependency>
+```
+et changer dans le repository on ajoutons une anotation et la methode de `findBytype`
+```java
+@RepositoryRestResource
+public interface BankAccountRepository extends JpaRepository<BankAccount, String> {
+    List<BankAccount> findByType(AccountType type);
+}
+```
+![Page http://localhost:8081/bankAccounts/search/findByType?type=SAVING_ACCOUNT](screenShots/17.png) \
+![http://localhost:8081/bankAccounts/search/findByType?type=CURRENT_ACCOUNT](screenShots/18.png) \
+
+## 6 -  Exposetion une API Restful en utilisant Spring Data Rest en exploitant des projections
+on creer une interface `AccountProjection`
+```java
+@Projection(types = BankAccount.class, name = "p1")
+public interface AccountProjection {
+    public String getId();
+    public AccountType getType();
+    public Double getBalance();
+
+}
+```
+Note mais au premier updater le `AccountRestController.java` pour pas fais des conflits avec lautre Rest
+```java
+@RequestMapping("/api")
+// ajouter ca pour changer the endpoint of the manual rest to /api/bankAccounts instead of just /bankAccounts
+```
+et si on entrer a http://localhost:8081/bankAccounts?projection=p1 on gonna see
+![http://localhost:8081/bankAccounts?projection=p1](screenShots/19.png) \
+pour le REST on peut changer les nom dans `BankAccountRepository`
+```java
+@RepositoryRestResource
+public interface BankAccountRepository extends JpaRepository<BankAccount, String> {
+    @RestResource(path = "/byType" )
+    List<BankAccount> findByType(@Param("t") AccountType type);
+}
+```
+les annotation `RestRousource` et `@Param` permet de ca.
+c-a-d on place de http://localhost:8081/bankAccounts/search/findByType?type=CURRENT_ACCOUNT on peut utiliser
+http://localhost:8081/bankAccounts/search/byType?t=CURRENT_ACCOUNT
+![http://localhost:8081/bankAccounts?projection=p1](screenShots/20.png) \
+
+## 6 - Création des DTOs et Mappers
+on creer un package `service` dans laquelle on creer l'interface `AccountService`
+```java
+public interface AccountService {
+    BankAccountResponseDTO addAccount(BankAccountRequestDTO bankAccountRequestDTO);
+}
+```
+avec `dto/BankAccountResponseDTO` :
+```java
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class BankAccountResponseDTO {
+    private String id;
+    private Date createdAt;
+    private Double balance;
+    private String currency;
+    private AccountType type;
+}
+```
+et `dto/BankAccountRequestDTO` :
+```java
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
+public class BankAccountRequestDTO {
+    private Double balance;
+    private String currency;
+    private AccountType type;
+}
+```
+et en implimenter linterface `AccountServiceImpl` :
+```java
+@Service
+@Transactional
+public class AccountServiceImpl implements AccountService {
+    @Autowired
+    private BankAccountRepository bankAccountRepository;
+    // you can intiat the mapper or make the methode static and work directly with it
+    // private BankAccountMapper bankAccountMapper;
+    @Override
+    public BankAccountResponseDTO addAccount(BankAccountRequestDTO bankAccountRequestDTO) {
+        // create the object using the mapper
+        BankAccount bankAccount = BankAccountMapper.fromBankAccountRequestDTO(bankAccountRequestDTO);
+        // save the object
+        BankAccount savedBankAccount = bankAccountRepository.save(bankAccount);
+        // copy the object or return it directly
+        return BankAccountMapper.toBankAccountResponseDTO(savedBankAccount);
+    }
+}
+```
+with the mappper `mapper/BankAccoutMapper`
+```java
+public class BankAccountMapper {
+
+    public static BankAccount fromBankAccountRequestDTO (BankAccountRequestDTO bankAccountRequestDTO) {
+        return BankAccount.builder()
+                .id(UUID.randomUUID().toString())
+                .createdAt(new Date())
+                .balance(bankAccountRequestDTO.getBalance())
+                .type(bankAccountRequestDTO.getType())
+                .currency(bankAccountRequestDTO.getCurrency())
+                .build();
+    }
+    public static BankAccountResponseDTO toBankAccountResponseDTO (BankAccount bankAccount) {
+        return BankAccountResponseDTO.builder()
+                .id(bankAccount.getId())
+                .createdAt(bankAccount.getCreatedAt())
+                .balance(bankAccount.getBalance())
+                .type(bankAccount.getType())
+                .currency(bankAccount.getCurrency())
+                .build();
+    }
+}
+```
+apres l'implimentation on utilse dans le controller `web/AccountRestController`
+et changer la methode save
+```java
+private BankAccountRepository bankAccountRepository;
+private AccountService accountService;
+
+public AccountRestController(BankAccountRepository bankAccountRepository, AccountService accountService) {
+    this.bankAccountRepository = bankAccountRepository;
+    this.accountService = accountService;
+}
+
+@PostMapping("/bankAccounts")
+public BankAccountResponseDTO save (@RequestBody BankAccountRequestDTO requestDTO) {
+    return accountService.addAccount(requestDTO);
+}
+
+```
+
+![saved methode test dans la documentation swager](screenShots/21.png) \
+
+## 7 - Création d'un Web service GraphQL pour ce Micro-service
