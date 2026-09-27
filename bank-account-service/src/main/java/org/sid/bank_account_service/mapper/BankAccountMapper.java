@@ -5,6 +5,7 @@ import org.sid.bank_account_service.dto.BankAccountResponseDTO;
 import org.sid.bank_account_service.entities.BankAccount;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 public class BankAccountMapper {
@@ -16,6 +17,7 @@ public class BankAccountMapper {
                 .balance(bankAccountRequestDTO.getBalance())
                 .type(bankAccountRequestDTO.getType())
                 .currency(bankAccountRequestDTO.getCurrency())
+                .customer(bankAccountRequestDTO.getCustomer())
                 .build();
     }
     public static BankAccountResponseDTO toBankAccountResponseDTO (BankAccount bankAccount) {
@@ -25,6 +27,10 @@ public class BankAccountMapper {
                 .balance(bankAccount.getBalance())
                 .type(bankAccount.getType())
                 .currency(bankAccount.getCurrency())
+                .customer(bankAccount.getCustomer())
                 .build();
+    }
+    public static List<BankAccountResponseDTO> toBankAccountResponseDTOList (List<BankAccount> bankAccounts) {
+        return bankAccounts.stream().map(BankAccountMapper::toBankAccountResponseDTO).toList();
     }
 }

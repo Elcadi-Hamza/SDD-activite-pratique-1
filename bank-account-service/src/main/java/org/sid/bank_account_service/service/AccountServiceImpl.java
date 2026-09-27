@@ -9,8 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
-import java.util.UUID;
+import java.util.List;
 
 @Service
 @Transactional
@@ -19,6 +18,19 @@ public class AccountServiceImpl implements AccountService {
     private BankAccountRepository bankAccountRepository;
     // you can intiat the mapper or make the methode static and work directly with it
     // private BankAccountMapper bankAccountMapper;
+
+    @Override
+    public List<BankAccountResponseDTO> accountList(){
+        return BankAccountMapper.toBankAccountResponseDTOList(bankAccountRepository.findAll());
+    }
+
+    @Override
+    public BankAccountResponseDTO accountById(String id){
+        return BankAccountMapper.toBankAccountResponseDTO(bankAccountRepository
+                .findById(id)
+                .orElseThrow(()->new RuntimeException(String.format("Account %s not found",id))));
+    }
+
     @Override
     public BankAccountResponseDTO addAccount(BankAccountRequestDTO bankAccountRequestDTO) {
         // create the object using the mapper
@@ -27,5 +39,25 @@ public class AccountServiceImpl implements AccountService {
         BankAccount savedBankAccount = bankAccountRepository.save(bankAccount);
         // copy the object or return it directly
         return BankAccountMapper.toBankAccountResponseDTO(savedBankAccount);
+    }
+    @Override
+    public BankAccountResponseDTO updateAccount(String id, BankAccountRequestDTO bankAccountRequestDTO) {
+        bankAccountRepository.findById(id).orElseThrow(()->new RuntimeException(String.format("Account %s not found",id)));
+        BankAccount bankAccount = BankAccount.builder()
+                .id(id)
+                .balance(bankAccountRequestDTO.getBalance())
+                .currency(bankAccountRequestDTO.getCurrency())
+                .type(bankAccountRequestDTO.getType())
+                .build();
+        BankAccount savedBankAccount = bankAccountRepository.save(bankAccount);
+        return BankAccountMapper.toBankAccountResponseDTO(savedBankAccount);
+    }
+
+    @Override
+    public Boolean deleteAccount(String id) {
+        bankAccountRepository.findById(id)
+                        .orElseThrow(()->new RuntimeException(String.format("account %s not found",id)));
+        bankAccountRepository.deleteById(id);
+        return true;
     }
 }
